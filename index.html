@@ -215,12 +215,86 @@
 
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+
+        /* PACS Proforma styles */
+        .badge.pacs { background: #d0eaff; color: #1a5276; }
+
+        .operator-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+            margin-top: 0.75rem;
+        }
+
+        .operator-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.875rem;
+            border-radius: 20px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            font-size: 0.875rem;
+        }
+
+        .operator-chip .rank {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #6c757d;
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .operator-chip.ensign-chip { background: #d4edda; border-color: #c3e6cb; }
+        .operator-chip.ensign-chip .rank { background: #2ecc71; }
+        .operator-chip.pacs-chip { background: #d0eaff; border-color: #b8daff; }
+        .operator-chip.pacs-chip .rank { background: #3498db; }
+
+        .operator-chip .op-name { font-weight: 600; color: #2c3e50; }
+        .operator-chip .op-stats { color: #6c757d; font-size: 0.8rem; }
+
+        .operators-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #adb5bd;
+            font-size: 0.75rem;
+            margin: 0 0.25rem;
+            white-space: nowrap;
+        }
+
+        .top-op-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.6rem;
+        }
+
+        .top-op-pill {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 10px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            font-size: 0.72rem;
+            color: #555;
+            white-space: nowrap;
+        }
+
+        .facility-card.pacs { border-left-color: #3498db; background: #d0eaff; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Texas SNF Market Analysis</h1>
-        <p>Metropolitan Market Dashboard - Ensign vs Avir</p>
+        <p>Metropolitan Market Dashboard — PACS Proforma + Ensign Analysis</p>
     </div>
 
     <div class="container">
@@ -237,11 +311,16 @@
                 <div class="label"><span id="ensignShare">-</span>% Market Share</div>
             </div>
 
-            <div class="stat-card gold">
-                <h3>Avir Facilities</h3>
-                <div class="value" id="avirCount">-</div>
-                <div class="label"><span id="avirShare">-</span>% Market Share</div>
+            <div class="stat-card" style="border-left-color: #3498db;">
+                <h3>PACS Proforma</h3>
+                <div class="value" id="pacsCount">-</div>
+                <div class="label"><span id="pacsShare">-</span>% Market Share</div>
             </div>
+        </div>
+
+        <div class="section" style="margin-bottom: 1.5rem;">
+            <h2>Statewide Top Operators</h2>
+            <div id="topOperatorsContent"><em style="color:#aaa;">Loading...</em></div>
         </div>
 
         <div class="main-grid">
@@ -250,9 +329,9 @@
                 <div id="map"></div>
                 <div style="margin-top: 1rem; font-size: 0.85rem; color: #6c757d;">
                     <strong>Legend:</strong>
-                    <span style="color: #2ecc71;">● Ensign</span>
-                    <span style="color: #f39c12; margin-left: 1rem;">● Avir</span>
-                    <span style="color: #95a5a6; margin-left: 1rem;">● Other</span>
+                    <span style="color: #2ecc71;">● Ensign (83 facilities)</span>
+                    <span style="color: #3498db; margin-left: 1rem;">● PACS Proforma (46 facilities)</span>
+                    <span style="color: #95a5a6; margin-left: 1rem;">● Other Operators</span>
                 </div>
             </div>
 
@@ -17037,6 +17116,49 @@ const FACILITIES_BY_METRO = {
 
     </script>
     <script>
+        // ── PACS Proforma helpers ────────────────────────────────────────────
+        const PACS_PROFORMA_NAMES = new Set([
+          // 5 existing PACS GROUP TX facilities (some mislabeled as Independent)
+          'NORTH HOUSTON TRANSITIONAL CARE', 'HOUSTON TRANSITIONAL CARE',
+          'MESA HILLS POST ACUTE', 'Fox Hollow Post Acute', 'Pasadena Post Acute',
+          // 41 TX41 acquisition targets
+          'APEX SECURE CARE BROWNFIELD', 'BROWNFIELD REHABILITATION AND CARE CENTER',
+          'Bayou Pines Care Center', 'Benbrook Nursing & Rehabilitation Center',
+          'Bremond Nursing and Rehabilitation Center', 'CLARENDON NURSING HOME',
+          'Country Village Care', 'Cypress Creek Rehabilitation and Healthcare Center',
+          'Eagle Crest Rapid Recovery', 'FALCON POINT POST ACUTE',
+          'Fall Creek Rehabilitation and Healthcare Center', 'Groveton Nursing Home',
+          'HARBOR VALLEY HEALTH AND REHABILITATION', 'HICO NURSING AND REHABILITATION',
+          'HILLTOP VILLAGE NURSING AND REHABILITATION', 'Homeplace Manor Healthcare Center',
+          'Kingwood Rehabilitation and Healthcare Center', 'LA DORA NURSING AND REHABILITATION CENTER',
+          'MEADOWBROOK CARE CENTER', 'Mallard Creek Therapy and Living Center',
+          'Mustang Park Therapy and Living Center', 'OAK GROVE NURSING HOME',
+          'OAK PARK NURSING AND REHABILITATION CENTER', 'PARKS HEALTH CENTER',
+          'REMARKABLE HEALTHCARE OF SEGUIN', 'RIVER HILLS HEALTH AND REHABILITATION CENTER',
+          'ROLLINGBROOK REHABILITATION AND HEALTHCARE CENTER', 'Ralls Nursing Home',
+          'Ridgewood at the Woodlands', 'SUN VALLEY REHABILITATION AND HEALTHCARE CENTER',
+          'San Rafael Nursing and Rehabilitation', 'Southern Oaks Therapy and Living Center',
+          'THE SHOAL', 'TRUCARE LIVING CENTERS', 'TRUCARE LIVING CENTERS - SELMA',
+          'TRUCARE LIVING CENTERS-COLUMBUS', 'VILLA HAVEN HEALTH AND REHABILITATION CENTER',
+          'Valley Grande Manor', 'WILLOW PARK REHABILITATION AND CARE CENTER',
+          'WOODWAY REHABILITATION AND HEALTHCARE CENTER', 'Willow Creek Lodge'
+        ]);
+
+        function isPacsProforma(f) {
+          return PACS_PROFORMA_NAMES.has(f.name) || f.chain === 'PACS GROUP';
+        }
+
+        function getEffectiveChain(f) {
+          if (f.is_ensign) return 'THE ENSIGN GROUP';
+          if (isPacsProforma(f)) return 'PACS (Proforma)';
+          return f.chain || 'Independent';
+        }
+
+        function getAllFacilities() {
+          return Object.values(FACILITIES_BY_METRO).flat();
+        }
+        // ────────────────────────────────────────────────────────────────────
+
         let map;
         let modalMapInstance = null;
 
@@ -17049,22 +17171,87 @@ const FACILITIES_BY_METRO = {
             // Update overall stats
             let totalFacilities = 0;
             let totalEnsign = 0;
-            let totalAvir = 0;
 
             METRO_STATS.forEach(metro => {
                 totalFacilities += metro.total_facilities;
                 totalEnsign += metro.ensign_facilities;
-                totalAvir += metro.avir_facilities;
             });
+
+            const totalPacs = getAllFacilities().filter(f => isPacsProforma(f)).length;
 
             document.getElementById('totalFacilities').textContent = totalFacilities.toLocaleString();
             document.getElementById('ensignCount').textContent = totalEnsign;
             document.getElementById('ensignShare').textContent = (totalEnsign / totalFacilities * 100).toFixed(1);
-            document.getElementById('avirCount').textContent = totalAvir;
-            document.getElementById('avirShare').textContent = (totalAvir / totalFacilities * 100).toFixed(1);
+            document.getElementById('pacsCount').textContent = totalPacs;
+            document.getElementById('pacsShare').textContent = (totalPacs / totalFacilities * 100).toFixed(1);
 
             populateMarkets();
+            renderTopOperators();
             initializeMap();
+        }
+
+        function getMetroOperatorStats(metroName) {
+            const facs = FACILITIES_BY_METRO[metroName] || [];
+            const counts = {};
+            facs.forEach(f => {
+                const chain = getEffectiveChain(f);
+                if (chain !== 'Independent') counts[chain] = (counts[chain] || 0) + 1;
+            });
+            const total = facs.length;
+            return Object.entries(counts)
+                .map(([name, count]) => ({ name, count, share: (count / total * 100).toFixed(1) }))
+                .sort((a, b) => b.count - a.count);
+        }
+
+        function renderTopOperators() {
+            const allFacs = getAllFacilities();
+            const total = allFacs.length;
+            const counts = {};
+            allFacs.forEach(f => {
+                const chain = getEffectiveChain(f);
+                if (chain !== 'Independent') counts[chain] = (counts[chain] || 0) + 1;
+            });
+
+            const sorted = Object.entries(counts)
+                .map(([name, count]) => ({ name, count, share: (count / total * 100).toFixed(1) }))
+                .sort((a, b) => b.count - a.count);
+
+            const top5 = sorted.slice(0, 5);
+            const inTop5 = new Set(top5.map(o => o.name));
+
+            const extraOps = ['THE ENSIGN GROUP', 'PACS (Proforma)']
+                .filter(name => !inTop5.has(name))
+                .map(name => sorted.find(o => o.name === name))
+                .filter(Boolean);
+
+            function chipClass(name) {
+                if (name === 'THE ENSIGN GROUP') return 'ensign-chip';
+                if (name === 'PACS (Proforma)') return 'pacs-chip';
+                return '';
+            }
+
+            let html = '<div class="operator-list">';
+            top5.forEach((op, i) => {
+                html += `<div class="operator-chip ${chipClass(op.name)}">
+                    <span class="rank">${i + 1}</span>
+                    <span class="op-name">${op.name}</span>
+                    <span class="op-stats">${op.count} facilities &middot; ${op.share}%</span>
+                </div>`;
+            });
+
+            if (extraOps.length > 0) {
+                html += '<span class="operators-divider">also tracked &rarr;</span>';
+                extraOps.forEach(op => {
+                    html += `<div class="operator-chip ${chipClass(op.name)}">
+                        <span class="rank" style="background:#aaa; font-size:0.65rem;">–</span>
+                        <span class="op-name">${op.name}</span>
+                        <span class="op-stats">${op.count} facilities &middot; ${op.share}%</span>
+                    </div>`;
+                });
+            }
+            html += '</div>';
+
+            document.getElementById('topOperatorsContent').innerHTML = html;
         }
 
         function populateMarkets() {
@@ -17081,12 +17268,20 @@ const FACILITIES_BY_METRO = {
         }
 
         function createMarketItem(metro) {
+            const opStats = getMetroOperatorStats(metro.metro);
+            const pacsOp = opStats.find(o => o.name === 'PACS (Proforma)');
+            const pacsShare = pacsOp ? `${pacsOp.share}% (${pacsOp.count})` : '0% (0)';
+            const top3 = opStats.slice(0, 3);
+            const top3Html = top3.map(op =>
+                `<span class="top-op-pill">${op.name} &nbsp;${op.share}% &middot; ${op.count}</span>`
+            ).join('');
+
             return `
                 <div class="market-item" onclick="showMarketDetails('${metro.metro.replace(/'/g, "\\'")}')">
                     <h3>
                         ${metro.metro}
                         ${metro.ensign_facilities > 0 ? '<span class="badge ensign">Ensign</span>' : ''}
-                        ${metro.avir_facilities > 0 ? '<span class="badge avir">Avir</span>' : ''}
+                        ${pacsOp ? '<span class="badge pacs">PACS</span>' : ''}
                     </h3>
                     <div class="market-stats">
                         <div>
@@ -17106,14 +17301,15 @@ const FACILITIES_BY_METRO = {
                             <span class="value">${metro.avg_occupancy.toFixed(1)}%</span>
                         </div>
                         <div>
-                            <span class="label">Avir Share:</span>
-                            <span class="value">${metro.avir_market_share}% (${metro.avir_facilities})</span>
+                            <span class="label">PACS Share:</span>
+                            <span class="value" style="color: #3498db;">${pacsShare}</span>
                         </div>
                         <div>
-                            <span class="label">Acquisition Targets:</span>
-                            <span class="value" style="color: #f39c12;">${metro.avir_facilities} Avir</span>
+                            <span class="label">Ensign Avg Rating:</span>
+                            <span class="value">${metro.ensign_avg_rating > 0 ? metro.ensign_avg_rating.toFixed(1) + ' ★' : '—'}</span>
                         </div>
                     </div>
+                    ${top3Html ? `<div class="top-op-pills">${top3Html}</div>` : ''}
                 </div>
             `;
         }
@@ -17128,21 +17324,26 @@ const FACILITIES_BY_METRO = {
             // Add all facilities
             Object.values(FACILITIES_BY_METRO).flat().forEach(facility => {
                 if (facility.lat && facility.lon) {
-                    const color = facility.is_ensign ? '#2ecc71' : facility.is_avir ? '#f39c12' : '#95a5a6';
-                    const isTarget = facility.is_ensign || facility.is_avir;
+                    const highlight = facility.is_ensign || isPacsProforma(facility);
+                    const color = facility.is_ensign ? '#2ecc71' : isPacsProforma(facility) ? '#3498db' : '#95a5a6';
+                    const radius = highlight ? 8 : 4;
+                    const fillOpacity = highlight ? 0.95 : 0.4;
+                    const zIndex = highlight ? 1000 : 0;
+                    const borderColor = highlight ? 'white' : '#bdc3c7';
+                    const borderWeight = highlight ? 2 : 1;
 
                     L.circleMarker([facility.lat, facility.lon], {
-                        radius: isTarget ? 8 : 5,
+                        radius,
                         fillColor: color,
-                        color: isTarget ? '#fff' : '#999',
-                        weight: isTarget ? 2 : 1,
+                        color: borderColor,
+                        weight: borderWeight,
                         opacity: 1,
-                        fillOpacity: isTarget ? 0.95 : 0.6,
-                        zIndexOffset: isTarget ? 1000 : 0
+                        fillOpacity,
+                        zIndexOffset: zIndex
                     }).addTo(map).bindPopup(`
                         <div style="min-width: 200px;">
                             <strong>${facility.name}</strong><br>
-                            <strong>Chain:</strong> ${facility.chain}<br>
+                            <strong>Chain:</strong> ${getEffectiveChain(facility)}<br>
                             <strong>Address:</strong> ${facility.address}, ${facility.city}<br>
                             <strong>Beds:</strong> ${facility.beds}<br>
                             <strong>Rating:</strong> ${'★'.repeat(Math.round(facility.rating))}<br>
@@ -17166,14 +17367,14 @@ const FACILITIES_BY_METRO = {
             document.getElementById('modalAvirOccupancy').textContent = metro.avir_avg_occupancy > 0 ? metro.avir_avg_occupancy.toFixed(1) : 'N/A';
 
             const facilitiesHTML = facilities.map(f => {
-                const cardClass = f.is_ensign ? 'ensign' : f.is_avir ? 'avir' : '';
+                const cardClass = f.is_ensign ? 'ensign' : isPacsProforma(f) ? 'pacs' : '';
                 return `
                     <div class="facility-card ${cardClass}">
                         <h4>${f.name}</h4>
-                        <p><strong>Chain:</strong> ${f.chain}</p>
+                        <p><strong>Chain:</strong> ${getEffectiveChain(f)}</p>
                         <p><strong>Address:</strong> ${f.city}, ${f.county} County</p>
                         <p><strong>Beds:</strong> ${f.beds} | <strong>Rating:</strong> ${f.rating.toFixed(1)}★ | <strong>Occupancy:</strong> ${f.occupancy}%</p>
-                        ${f.is_avir ? '<p style="color: #f39c12; font-weight: 600;">🎯 Acquisition Target</p>' : ''}
+                        ${isPacsProforma(f) ? '<p style="color: #3498db; font-weight: 600;">PACS Proforma</p>' : ''}
                     </div>
                 `;
             }).join('');
@@ -17213,25 +17414,25 @@ const FACILITIES_BY_METRO = {
             }).addTo(modalMapInstance);
 
             validFacilities.forEach(facility => {
-                const color = facility.is_ensign ? '#2ecc71' : facility.is_avir ? '#f39c12' : '#95a5a6';
-                const isTarget = facility.is_ensign || facility.is_avir;
+                const highlight = facility.is_ensign || isPacsProforma(facility);
+                const color = facility.is_ensign ? '#2ecc71' : isPacsProforma(facility) ? '#3498db' : '#95a5a6';
 
                 L.circleMarker([facility.lat, facility.lon], {
-                    radius: isTarget ? 10 : 6,
+                    radius: highlight ? 10 : 6,
                     fillColor: color,
-                    color: isTarget ? '#fff' : '#999',
-                    weight: isTarget ? 2.5 : 1.5,
+                    color: highlight ? '#fff' : '#999',
+                    weight: highlight ? 2.5 : 1.5,
                     opacity: 1,
-                    fillOpacity: isTarget ? 1 : 0.7,
-                    zIndexOffset: isTarget ? 1000 : 0
+                    fillOpacity: highlight ? 1 : 0.7,
+                    zIndexOffset: highlight ? 1000 : 0
                 }).addTo(modalMapInstance).bindPopup(`
                     <div style="min-width: 200px;">
                         <strong>${facility.name}</strong><br>
-                        <strong>Chain:</strong> ${facility.chain}<br>
+                        <strong>Chain:</strong> ${getEffectiveChain(facility)}<br>
                         <strong>Beds:</strong> ${facility.beds}<br>
                         <strong>Rating:</strong> ${'★'.repeat(Math.round(facility.rating))}<br>
                         <strong>Occupancy:</strong> ${facility.occupancy}%
-                        ${facility.is_avir ? '<br><span style="color: #f39c12; font-weight: 600;">🎯 Target</span>' : ''}
+                        ${isPacsProforma(facility) ? '<br><span style="color: #3498db; font-weight: 600;">PACS Proforma</span>' : ''}
                     </div>
                 `);
             });
